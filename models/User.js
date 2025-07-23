@@ -43,6 +43,7 @@ const userSchema = new mongoose.Schema({
     notas: { type: String, default: '' },
     
     cartazesPontosDisponiveis: { type: Number, default: 0 },
+    cartasPontosDisponiveis: { type: Number, default: 0 },
 
   },
 });

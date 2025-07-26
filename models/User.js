@@ -48,6 +48,12 @@ const userSchema = new mongoose.Schema({
     historico: { type: String, default: '' },
     aliados: { type: String, default: '' },
     notas: { type: String, default: '' },
+<<<<<<< HEAD
+=======
+    
+    cartazesPontosDisponiveis: { type: Number, default: 0 },
+    cartasPontosDisponiveis: { type: Number, default: 0 },
+>>>>>>> cbf137c662df31dd7d1fc04fc3dcd026b62ed43c
 
     cartazesPontosDisponiveis: { type: Number, default: 0 },
     cartasPontosDisponiveis: { type: Number, default: 0 },

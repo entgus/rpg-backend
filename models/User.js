@@ -7,6 +7,13 @@ const cartaSchema = new mongoose.Schema({
   funcionalidade: { type: String, default: '' },
 });
 
+// Defina o schema dos paths antes de usar
+const pathSchema = new mongoose.Schema({
+  nome: { type: String, default: '' },
+  desbloqueado: { type: Boolean, default: false },
+  descricao: { type: String, default: '' },
+});
+
 const userSchema = new mongoose.Schema({
   username: String,
   email: { type: String, unique: true },
@@ -41,9 +48,13 @@ const userSchema = new mongoose.Schema({
     historico: { type: String, default: '' },
     aliados: { type: String, default: '' },
     notas: { type: String, default: '' },
-    
-    cartazesPontosDisponiveis: { type: Number, default: 0 },
 
+    cartazesPontosDisponiveis: { type: Number, default: 0 },
+    cartasPontosDisponiveis: { type: Number, default: 0 },
+
+    // Sistema de paths
+    pathPoints: { type: Number, default: 0 },
+    paths: [pathSchema],
   },
 });
 

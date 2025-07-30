@@ -10,9 +10,27 @@ const cartaSchema = new mongoose.Schema({
 
 // Schema para paths (caminhos desbloqueáveis)
 const pathSchema = new mongoose.Schema({
+  id: { type: Number, required: true },
   nome: { type: String, default: '' },
   desbloqueado: { type: Boolean, default: false },
   descricao: { type: String, default: '' },
+  nivel: { type: Number, default: 1 },
+  coluna: { type: Number, default: 1 },
+  filhos: [{ type: Number }],
+});
+
+// 📌 Schema das conexões entre os paths (linhas)
+const connectionSchema = new mongoose.Schema({
+  from: { type: Number, required: true },
+  to: { type: Number, required: true },
+  start: {
+    x: { type: Number, required: true },
+    y: { type: Number, required: true },
+  },
+  end: {
+    x: { type: Number, required: true },
+    y: { type: Number, required: true },
+  },
 });
 
 // Schema principal do usuário
@@ -54,9 +72,10 @@ const userSchema = new mongoose.Schema({
     cartazesPontosDisponiveis: { type: Number, default: 0 },
     cartasPontosDisponiveis: { type: Number, default: 0 },
 
-    // Sistema de paths
+    // ----------- Sistema de paths -----------
     pathPoints: { type: Number, default: 0 },
     paths: [pathSchema],
+    pathConnections: [connectionSchema],
   },
 });
 

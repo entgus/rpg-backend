@@ -1,9 +1,21 @@
 const express = require('express');
 const router = express.Router();
-
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+
+// Middleware para autenticação
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.sendStatus(401);
+
+  jwt.verify(token, process.env.SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
+}
 
 // Registrar usuário
 router.post('/register', async (req, res) => {
@@ -44,7 +56,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Atualizar ficha (salvar ficha no usuário correto)
+// Atualizar ficha (não requer token pois é pelo email, pode melhorar depois)
 router.put('/updateFicha', async (req, res) => {
   const { email, ficha } = req.body;
   try {
@@ -52,7 +64,6 @@ router.put('/updateFicha', async (req, res) => {
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
     user.ficha = { ...user.ficha.toObject(), ...ficha };
-
     await user.save();
 
     res.json({ message: 'Ficha atualizada!', ficha: user.ficha });
@@ -61,7 +72,7 @@ router.put('/updateFicha', async (req, res) => {
   }
 });
 
-// Pegar pontos disponíveis para criar cartas
+// Pontos para cartas
 router.get('/ficha/cartas-pontos', async (req, res) => {
   try {
     const { email } = req.query;
@@ -74,29 +85,36 @@ router.get('/ficha/cartas-pontos', async (req, res) => {
   }
 });
 
-// Gastar ponto para carta
-router.put('/ficha/gastar-ponto-carta', async (req, res) => {
+// Gastar ponto para carta - exige autenticação
+async function gastarPontoCartaHandler(req, res) {
+  const userId = req.user.id;
   try {
-    const { email } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
+    const user = await User.findById(userId);
 
-    if (user.ficha.cartasPontosDisponiveis <= 0) {
-      return res.status(400).json({ error: 'Você não possui pontos disponíveis para criar cartas.' });
+    if (!user.ficha || (user.ficha.pontosCartas || user.ficha.cartasPontosDisponiveis || 0) <= 0) {
+      return res.status(400).json({ message: "Sem pontos de carta disponíveis." });
     }
 
-    user.ficha.cartasPontosDisponiveis -= 1;
+    if (user.ficha.pontosCartas !== undefined) {
+      user.ficha.pontosCartas -= 1;
+    } else if (user.ficha.cartasPontosDisponiveis !== undefined) {
+      user.ficha.cartasPontosDisponiveis -= 1;
+    }
+
     await user.save();
 
-    return res.json({ pontosRestantes: user.ficha.cartasPontosDisponiveis });
+    res.json({ message: "Carta adquirida com sucesso!", pontosCartas: user.ficha.pontosCartas || user.ficha.cartasPontosDisponiveis });
   } catch (error) {
-    res.status(500).json({ error: 'Erro no servidor.' });
+    res.status(500).json({ message: "Erro ao gastar ponto de carta." });
   }
-});
+}
 
-// ------------------ ROTAS NOVAS PARA PATHS ------------------
+router.post("/ficha/gastar-ponto-carta", authenticateToken, gastarPontoCartaHandler);
+router.put("/ficha/gastar-ponto-carta", authenticateToken, gastarPontoCartaHandler);
 
-// Pegar pontos disponíveis do path
+// ------------ PATHS ------------
+
+// Pontos disponíveis para paths (via email, sem token)
 router.get('/ficha/path-points', async (req, res) => {
   try {
     const { email } = req.query;
@@ -109,7 +127,7 @@ router.get('/ficha/path-points', async (req, res) => {
   }
 });
 
-// Pegar os paths atuais
+// Obter paths
 router.get('/ficha/paths', async (req, res) => {
   try {
     const { email } = req.query;
@@ -142,19 +160,52 @@ router.put('/ficha/gastar-ponto-path', async (req, res) => {
   }
 });
 
-// Atualizar paths do usuário (ex: desbloquear ou modificar)
+// Atualizar paths
 router.put('/ficha/update-paths', async (req, res) => {
   try {
     const { email, paths } = req.body;
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
-    user.ficha.paths = paths;  // Substitui os paths atuais
+    user.ficha.paths = paths;
     await user.save();
 
     return res.json({ message: 'Paths atualizados!', paths: user.ficha.paths });
   } catch (error) {
     res.status(500).json({ error: 'Erro no servidor.' });
+  }
+});
+
+// ------------ CONEXÕES ENTRE PATHS ------------
+
+// Salvar conexões entre paths - com autenticação
+router.put('/ficha/salvar-conexoes', authenticateToken, async (req, res) => {
+  try {
+    const { pathConnections } = req.body;
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+    user.ficha.pathConnections = pathConnections || [];
+    await user.save();
+
+    res.json({ message: 'Conexões salvas com sucesso!', pathConnections: user.ficha.pathConnections });
+  } catch (error) {
+    console.error('Erro ao salvar conexões:', error);
+    res.status(500).json({ error: 'Erro ao salvar conexões entre paths.' });
+  }
+});
+
+// Obter conexões entre paths - com autenticação
+router.get('/ficha/conexoes', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+    res.json({ pathConnections: user.ficha.pathConnections || [] });
+  } catch (error) {
+    console.error('Erro ao buscar conexões:', error);
+    res.status(500).json({ error: 'Erro ao buscar conexões entre paths.' });
   }
 });
 

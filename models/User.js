@@ -8,14 +8,22 @@ const cartaSchema = new mongoose.Schema({
   funcionalidade: { type: String, default: '' },
 });
 
-// Schema para paths (caminhos desbloqueáveis)
 const pathSchema = new mongoose.Schema({
   id: { type: Number, required: true },
   nome: { type: String, default: '' },
   desbloqueado: { type: Boolean, default: false },
   descricao: { type: String, default: '' },
+
+  image: { type: String, default: '' }, // 🔥 AQUI
+
   nivel: { type: Number, default: 1 },
   coluna: { type: Number, default: 1 },
+
+  position: {
+    x: { type: Number, default: 0 },
+    y: { type: Number, default: 0 },
+  },
+
   filhos: [{ type: Number }],
 });
 
@@ -23,14 +31,6 @@ const pathSchema = new mongoose.Schema({
 const connectionSchema = new mongoose.Schema({
   from: { type: Number, required: true },
   to: { type: Number, required: true },
-  start: {
-    x: { type: Number, required: true },
-    y: { type: Number, required: true },
-  },
-  end: {
-    x: { type: Number, required: true },
-    y: { type: Number, required: true },
-  },
 });
 
 // Schema principal do usuário
@@ -38,6 +38,11 @@ const userSchema = new mongoose.Schema({
   username: String,
   email: { type: String, unique: true },
   passwordHash: String,
+  role: {
+  type: String,
+  enum: ["player", "master"],
+  default: "player",
+},
 
   ficha: {
     // ----------- Página 1 -----------
@@ -75,7 +80,7 @@ const userSchema = new mongoose.Schema({
     // ----------- Sistema de paths -----------
     pathPoints: { type: Number, default: 0 },
     paths: [pathSchema],
-    pathConnections: [connectionSchema],
+    connections: [connectionSchema],
   },
 });
 

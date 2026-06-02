@@ -43,14 +43,17 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign({ id: user._id }, process.env.SECRET, { expiresIn: '1d' });
 
     res.json({
-      token,
-      user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-      },
-      ficha: user.ficha || {},
-    });
+  token,
+
+  user: {
+    _id: user._id,
+    username: user.username,
+    email: user.email,
+    role: user.role,
+  },
+
+  ficha: user.ficha || {},
+});
   } catch (err) {
     res.status(500).json({ error: 'Erro no servidor.' });
   }
@@ -131,11 +134,20 @@ router.get('/ficha/path-points', async (req, res) => {
 router.get('/ficha/paths', async (req, res) => {
   try {
     const { email } = req.query;
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
-    return res.json({ paths: user.ficha.paths || [] });
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    return res.json({
+      paths: user.ficha.paths || [],
+      connections: user.ficha.connections || [] // 🔥 ESSENCIAL
+    });
+
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Erro no servidor.' });
   }
 });
@@ -161,21 +173,47 @@ router.put('/ficha/gastar-ponto-path', async (req, res) => {
 });
 
 // Atualizar paths
-router.put('/ficha/update-paths', async (req, res) => {
+router.put("/ficha/update-paths", authenticateToken, async (req, res) => {
   try {
-    const { email, paths } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
-    user.ficha.paths = paths;
+    console.log("BODY:", req.body);
+
+    const { email, paths, connections } = req.body;
+
+    const currentUser = await User.findById(req.user.id);
+
+if (
+  currentUser.role !== "master" &&
+  currentUser.email !== email
+) {
+  return res.status(403).json({
+    error: "Sem permissão",
+  });
+}
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ error: "Usuário não encontrado" });
+    }
+
+    // 🔥 SALVA TUDO DE FORMA SEGURA
+    user.ficha.paths = Array.isArray(paths) ? paths : [];
+    user.ficha.connections = Array.isArray(connections) ? connections : [];
+
     await user.save();
 
-    return res.json({ message: 'Paths atualizados!', paths: user.ficha.paths });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro no servidor.' });
+    return res.json({
+      ok: true,
+      paths: user.ficha.paths,
+      connections: user.ficha.connections,
+    });
+
+  } catch (err) {
+    console.error("Erro update-paths:", err);
+    return res.status(500).json({ error: "Erro ao salvar paths" });
   }
 });
-
 // ------------ CONEXÕES ENTRE PATHS ------------
 
 // Salvar conexões entre paths - com autenticação
@@ -206,6 +244,36 @@ router.get('/ficha/conexoes', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Erro ao buscar conexões:', error);
     res.status(500).json({ error: 'Erro ao buscar conexões entre paths.' });
+  }
+});
+
+router.get("/players", authenticateToken, async (req, res) => {
+  try {
+
+    // pega usuário logado
+    const currentUser = await User.findById(req.user.id);
+
+    // verifica se é mestre
+    if (currentUser.role !== "master") {
+      return res.status(403).json({
+        error: "Sem permissão",
+      });
+    }
+
+    // busca todos os players
+    const users = await User.find(
+      {},
+      "username email role"
+    );
+
+    res.json(users);
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: "Erro ao buscar players",
+    });
   }
 });
 

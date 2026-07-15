@@ -45,8 +45,15 @@ router.post('/cartazes-publicos', authMiddleware, async (req, res) => {
 
     res.status(201).json(novoCartaz);
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao criar cartaz público.' });
-  }
+  console.error("===== ERRO AO CRIAR CARTAZ =====");
+  console.error(error);
+
+  res.status(500).json({
+    message: error.message,
+    name: error.name,
+    stack: error.stack,
+  });
+}
 });
 
 module.exports = router;
